@@ -36,7 +36,6 @@ interface MatchOptions {
     ignoreCase?: boolean;
     matchFromStart?: boolean;
     matchToEnd?: boolean;
-    onMatch?: (val: string) => void;
     onReplace?: (val: string) => string;
 }
 /**

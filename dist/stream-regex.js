@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.StreamRegex = void 0;
+var _stream = require("stream");
 var _debug = _interopRequireDefault(require("debug"));
 var _isString = _interopRequireDefault(require("lodash/isString"));
 var _nfa = require("./nfa");
@@ -29,25 +30,30 @@ class StreamRegex {
   }
 
   /**
-   * 
+   * Match the input stream against the regex.
+   * This reuses the `replace` function by providing a replacement that does not change the input.
+   * Instead, it just pushes the matches into a separate output stream.
+   *
    * @param input
    * @param options
    */
-  match(input, onMatch, options = {}) {
-    const opts = {
-      global: this.regex.global,
-      ignoreCase: this.regex.ignoreCase,
-      matchFromStart: this.hasStartMatcher,
-      matchToEnd: this.hasEndMatcher,
-      greedy: true,
-      onMatch,
-      ...options
-    };
-    (0, _nfa.match)(this.nfa, input, opts);
+  match(input, options = {}) {
+    const output = new _stream.Readable();
+    output._read = () => {};
+    this.replace(input, match => {
+      output.push(match);
+      return match;
+    }, options).on('data', () => {
+      // Do nothing.
+    }).on('end', () => {
+      output.push(null);
+    });
+    return output;
   }
 
   /**
-   * 
+   * Replace the matches in the input stream with the replacement.
+   *
    * @param input
    * @param replacement
    */
@@ -64,12 +70,7 @@ class StreamRegex {
       },
       ...options
     };
-    const output = (0, _nfa.match)(this.nfa, input, opts);
-    if (!output) {
-      // This should never happen.
-      throw new Error('Matcher did not return an output stream.');
-    }
-    return output;
+    return (0, _nfa.match)(this.nfa, input, opts);
   }
 }
 exports.StreamRegex = StreamRegex;

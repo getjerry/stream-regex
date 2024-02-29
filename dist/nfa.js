@@ -504,10 +504,9 @@ const match = (start, input, options) => {
     ...options
   };
   // Output stream
-  const replaceStream = opts.onReplace ? new _stream.Readable() : undefined;
-  if (replaceStream) {
-    replaceStream._read = () => {};
-  }
+  const replaceStream = new _stream.Readable();
+  replaceStream._read = () => {};
+
   // First match success flag.
   let matchSucceeded = false;
   // Most recent matched string.
@@ -551,7 +550,7 @@ const match = (start, input, options) => {
     listID++;
     const nextStates = [];
     (0, _each.default)(list, state => {
-      if (state.type === 'Char' && state.char) {
+      if (state.type === 'Char' && !(0, _isNil.default)(state.char)) {
         const srcChar = opts.ignoreCase ? char.toLowerCase() : char;
         const stateCharArray = (0, _isArray.default)(state.char) ? state.char : [state.char];
         const hasMatch = (0, _every.default)(stateCharArray, stateChar => {
@@ -728,15 +727,10 @@ const match = (start, input, options) => {
           if (options.onReplace) {
             str = options.onReplace(matchedStr);
           }
-
-          // If we're not matching to the end of stream, call the onMatch callback.
-          if (!options.matchToEnd) {
-            options.onMatch?.(matchedStr);
-          }
         }
         // If we're not matching to the end of stream, push the matched string to the output stream.
         if (!options.matchToEnd) {
-          replaceStream?.push(str);
+          replaceStream.push(str);
         }
 
         // Record this match (used for end matching).
@@ -751,12 +745,12 @@ const match = (start, input, options) => {
           rejectMatching = !!options.matchFromStart;
         }
         if (!options.matchToEnd) {
-          replaceStream?.push(origStr);
+          replaceStream.push(origStr);
         } else if (!close) {
           if (lastMatchedString) {
-            replaceStream?.push(lastMatchedString);
+            replaceStream.push(lastMatchedString);
           }
-          replaceStream?.push(origStr);
+          replaceStream.push(origStr);
           lastMatchedString = undefined;
         }
       }
@@ -765,11 +759,10 @@ const match = (start, input, options) => {
       } else {
         if (options.matchToEnd) {
           if (lastMatchedString) {
-            options.onMatch?.(lastMatchedString);
-            replaceStream?.push(!rejectMatching && options.onReplace ? options.onReplace(lastMatchedString) : lastMatchedString);
+            replaceStream.push(!rejectMatching && options.onReplace ? options.onReplace(lastMatchedString) : lastMatchedString);
           }
         }
-        replaceStream?.push(null);
+        replaceStream.push(null);
       }
     });
     return replaceStream;

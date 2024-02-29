@@ -14,12 +14,16 @@ export declare class StreamRegex {
     private nfa;
     constructor(regex: RegExp);
     /**
+     * Match the input stream against the regex.
+     * This reuses the `replace` function by providing a replacement that does not change the input.
+     * Instead, it just pushes the matches into a separate output stream.
      *
      * @param input
      * @param options
      */
-    match(input: Readable, onMatch: (match: string) => void, options?: MatchOptions): void;
+    match(input: Readable, options?: MatchOptions): Readable;
     /**
+     * Replace the matches in the input stream with the replacement.
      *
      * @param input
      * @param replacement

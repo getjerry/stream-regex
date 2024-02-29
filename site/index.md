@@ -21,7 +21,7 @@ const streamRegex = new StreamRegex(regexp: RegExp);
 
 ### Matching
 
-The `match` method on `StreamRegex` takes a `Readable` stream to match against. The results of the match are provided via callback.
+The `match` method on `StreamRegex` takes a `Readable` stream to match against. A new stream is returned that will have the matched strings.
 
 ```typescript
 match(input: Readable, onMatch: (match: string) => void, options: MatchOptions = {}): void
@@ -30,8 +30,9 @@ match(input: Readable, onMatch: (match: string) => void, options: MatchOptions =
 ```typescript
 const inputStream: Readable = ...;
 const streamRegex = new StreamRegex(/(a|b)/g);
-streamRegex.match(inputStream, (match: string) => {
-  console.log(match);
+const matchStream = streamRegex.match(inputStream);
+matchStream.on('data', (chunk) => {
+  console.log(chunk.toString());
 });
 ```
 
