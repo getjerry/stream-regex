@@ -8,7 +8,7 @@ const config = {
         path: path.resolve(__dirname, 'dist'),
         filename: 'index.js',
         library: 'stream-regex',
-        libraryTarget: 'umd',
+        libraryTarget: 'commonjs',
     },
     plugins: [
         // Add your plugins here

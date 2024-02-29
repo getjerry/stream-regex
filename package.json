@@ -11,8 +11,9 @@
   "main": "dist/index.js",
   "scripts": {
     "grammar:gen": "ohm generateBundles --withTypes src/grammar/regex.ohm",
-    "build": "npm run grammar:gen && webpack",
-    "test": "jest"
+    "build": "npm run grammar:gen && webpack && tsc --emitDeclarationOnly",
+    "test": "jest",
+    "publish": "npm run build && npm version patch && npm publish"
   },
   "author": "Musawir Shah <musawir@gmail.com>",
   "license": "ISC",
