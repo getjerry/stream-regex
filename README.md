@@ -1,5 +1,7 @@
 # StreamRegex
 
+![CI](https://github.com/getjerry/stream-regex/actions/workflows/node.js.yml/badge.svg)
+
 ## Installation
 
 ```shell
