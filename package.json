@@ -1,6 +1,6 @@
 {
   "name": "stream-regex",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Regex execution engine for streams",
   "keywords": [
     "regex",
