@@ -561,6 +561,10 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
       debugLogger('[createPassThroughStream] passThrough stream ended');
       procStream.end();
     });
+    procStream.on('end', () => {
+      debugLogger('[createPassThroughStream] procStream ended');
+      passThrough.end();
+    });
 
     input.pipe(passThrough);
     if (input.readableEnded) {
@@ -652,7 +656,6 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
         doMatchStream(start, input, options, idx + idxOffset, strBuffer);
       } else {
         if (options.matchToEnd) {
-          console.log('Matched str', lastMatchedString, rejectMatching);
           if (lastMatchedString) {
             options.onMatch?.(lastMatchedString);
             replaceStream?.push(!rejectMatching && options.onReplace ? options.onReplace(lastMatchedString) : lastMatchedString);
