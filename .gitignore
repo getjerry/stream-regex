@@ -1,6 +1,9 @@
 # dependencies
 node_modules
 
+# tests in dist
+dist/**/*.spec.*
+
 # IDEs and editors
 /.idea
 .project
