@@ -10,6 +10,7 @@
     "allowJs": true,
     "outDir": "dist",
     "sourceMap": true,
+    "strictNullChecks": true
   },
   "files": ["src/index.ts"]
 }

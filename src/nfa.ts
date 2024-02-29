@@ -385,8 +385,6 @@ interface MatchOptions {
   matchFromStart?: boolean;
   // If true, the algorithm will match to the end of the input string.
   matchToEnd?: boolean;
-  // Callback that is called when a match is found.
-  onMatch?: (val: string) => void;
   // If provided, the algorithm will replace the matched string with the return value of this function.
   onReplace?: (val: string) => string;
 }
@@ -411,10 +409,9 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
     ...options,
   };
   // Output stream
-  const replaceStream = opts.onReplace ? new Readable() : undefined;
-  if (replaceStream) {
-    replaceStream._read = () => {};
-  }
+  const replaceStream = new Readable();
+  replaceStream._read = () => {};
+
   // First match success flag.
   let matchSucceeded = false;
   // Most recent matched string.
@@ -457,7 +454,7 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
     listID++;
     const nextStates: State[] = [];
     each(list, (state) => {
-      if (state.type === 'Char' && state.char) {
+      if (state.type === 'Char' && !isNil(state.char)) {
         const srcChar = opts.ignoreCase ? char.toLowerCase() : char;
         const stateCharArray = isArray(state.char) ? state.char : [state.char];
         const hasMatch = every(stateCharArray, (stateChar) => {
@@ -618,15 +615,10 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
           if (options.onReplace) {
             str = options.onReplace(matchedStr);
           }
-
-          // If we're not matching to the end of stream, call the onMatch callback.
-          if (!options.matchToEnd) {
-            options.onMatch?.(matchedStr);
-          }
         }
         // If we're not matching to the end of stream, push the matched string to the output stream.
         if (!options.matchToEnd) {
-          replaceStream?.push(str)
+          replaceStream.push(str)
         }
 
         // Record this match (used for end matching).
@@ -642,12 +634,12 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
           rejectMatching = !!options.matchFromStart;
         }
         if (!options.matchToEnd) {
-          replaceStream?.push(origStr);
+          replaceStream.push(origStr);
         } else if (!close) {
           if (lastMatchedString) {
-            replaceStream?.push(lastMatchedString);
+            replaceStream.push(lastMatchedString);
           }
-          replaceStream?.push(origStr);
+          replaceStream.push(origStr);
           lastMatchedString = undefined;
         }
       }
@@ -657,11 +649,10 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
       } else {
         if (options.matchToEnd) {
           if (lastMatchedString) {
-            options.onMatch?.(lastMatchedString);
-            replaceStream?.push(!rejectMatching && options.onReplace ? options.onReplace(lastMatchedString) : lastMatchedString);
+            replaceStream.push(!rejectMatching && options.onReplace ? options.onReplace(lastMatchedString) : lastMatchedString);
           }
         }
-        replaceStream?.push(null);
+        replaceStream.push(null);
       }
     });
 

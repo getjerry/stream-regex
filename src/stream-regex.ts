@@ -39,26 +39,32 @@ export class StreamRegex {
   }
 
   /**
-   * 
+   * Match the input stream against the regex.
+   * This reuses the `replace` function by providing a replacement that does not change the input.
+   * Instead, it just pushes the matches into a separate output stream.
+   *
    * @param input
    * @param options
    */
-  match(input: Readable, onMatch: (match: string) => void, options: MatchOptions = {}): void {
-    const opts = {
-      global: this.regex.global,
-      ignoreCase: this.regex.ignoreCase,
-      matchFromStart: this.hasStartMatcher,
-      matchToEnd: this.hasEndMatcher,
-      greedy: true,
-      onMatch,
-      ...options,
-    }
+  match(input: Readable, options: MatchOptions = {}): Readable {
+    const output = new Readable();
+    output._read = () => {};
 
-    match(this.nfa, input, opts);
+    this.replace(input, (match) => {
+      output.push(match);
+      return match;
+    }, options).on('data', () => {
+      // Do nothing.
+    })
+    .on('end', () => {
+      output.push(null);
+    });
+    return output;
   }
 
   /**
-   * 
+   * Replace the matches in the input stream with the replacement.
+   *
    * @param input
    * @param replacement
    */
@@ -76,11 +82,6 @@ export class StreamRegex {
       ...options,
     }
 
-    const output = match(this.nfa, input, opts);
-    if (!output) {
-      // This should never happen.
-      throw new Error('Matcher did not return an output stream.');
-    }
-    return output;
+    return match(this.nfa, input, opts);
   }
 }

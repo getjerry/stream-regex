@@ -26,14 +26,16 @@ const stringToStream = (str: string, chunkSize: number): Readable => {
  * Utility function to convert a stream to a promise that resolves to the data in the stream.
  *
  * @param stream
+ * @param type
  */
-const streamToPromise = (stream: Readable): Promise<string> => {
+const streamToPromise = <T extends 'match' | 'replace', U = T extends 'match' ? string[] : string>(stream: Readable, type: T): Promise<U> => {
   return new Promise((resolve, reject) => {
-    let data = '';
+    const data: string[] = [];
     stream.on('data', (chunk) => {
-      data += chunk.toString();
+      data.push(chunk.toString());
     }).on('end', () => {
-      resolve(data);
+      const retVal = type === 'match' ? data : data.join('');
+      resolve(retVal as U);
     }).on('error', (err) => {
       reject(err);
     });
@@ -45,56 +47,56 @@ describe('StreamRegex', () => {
     const regex = /ab/;
     const input = stringToStream('abcdef', 1);
     const streamRegex = new StreamRegex(regex);
-    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('_ab_cdef');
+    return expect(streamToPromise(streamRegex.match(input), 'match')).resolves.toEqual(['ab']);
   });
 
   it('/ab/ (no match)', async () => {
     const regex = /ab/;
     const input = stringToStream('bacdef', 1);
     const streamRegex = new StreamRegex(regex);
-    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('bacdef');
+    return expect(streamToPromise(streamRegex.match(input), 'match')).resolves.toEqual([]);
   });
 
   it('/ab/i', async () => {
     const regex = /ab/i;
     const input = stringToStream('MMm...ab--XAbssBAB', 1);
     const streamRegex = new StreamRegex(regex);
-    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('MMm..._ab_--XAbssBAB');
+    return expect(streamToPromise(streamRegex.match(input), 'match')).resolves.toEqual(['ab']);
   });
 
   it('/ab/ig', async () => {
     const regex = /ab/ig;
     const input = stringToStream('MMm...ab--XAbssBAB', 5);
     const streamRegex = new StreamRegex(regex);
-    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('MMm..._ab_--X_Ab_ssB_AB_');
+    return expect(streamToPromise(streamRegex.match(input), 'match')).resolves.toEqual(['ab', 'Ab', 'AB']);
   });
 
   it('/^ab/ (match)', async () => {
     const regex = /^ab/;
     const input = stringToStream('ab--XAbssBAB', 1);
     const streamRegex = new StreamRegex(regex);
-    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('_ab_--XAbssBAB');
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`), 'replace')).resolves.toBe('_ab_--XAbssBAB');
   });
 
   it('/^ab/ (no match)', async () => {
     const regex = /^ab/;
     const input = stringToStream('MMm...ab--XAbssBAB', 1);
     const streamRegex = new StreamRegex(regex);
-    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('MMm...ab--XAbssBAB');
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`), 'replace')).resolves.toBe('MMm...ab--XAbssBAB');
   });
 
   it('/ab$/i (match)', async () => {
     const regex = /ab$/i;
     const input = stringToStream('MMm...ab--XAbssBAB', 1);
     const streamRegex = new StreamRegex(regex);
-    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('MMm...ab--XAbssB_AB_');
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`), 'replace')).resolves.toBe('MMm...ab--XAbssB_AB_');
   });
 
   it('/ab$/i (no-match)', async () => {
     const regex = /ab$/i;
     const input = stringToStream('MMm...ab--XAbssBABa', 1);
     const streamRegex = new StreamRegex(regex);
-    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('MMm...ab--XAbssBABa');
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`), 'replace')).resolves.toBe('MMm...ab--XAbssBABa');
   });
 
   // eslint-disable-next-line no-useless-escape
@@ -102,7 +104,7 @@ describe('StreamRegex', () => {
     const regex = /\[([^\]]+)\]\((getjerry:\/\/[\w-/]+)\)/i;
     const input = stringToStream('[hello](getjerry://some/link-to-here)', 4);
     const streamRegex = new StreamRegex(regex);
-    return expect(streamToPromise(streamRegex.replace(input, (match, p1, p2) => `<a href="${p2}">${p1}</a>`))).resolves.toBe('<a href="getjerry://some/link-to-here">hello</a>');
+    return expect(streamToPromise(streamRegex.replace(input, (match, p1, p2) => `<a href="${p2}">${p1}</a>`), 'replace')).resolves.toBe('<a href="getjerry://some/link-to-here">hello</a>');
   });
 
   // eslint-disable-next-line no-useless-escape
@@ -126,6 +128,6 @@ describe('StreamRegex', () => {
     }
     input.push(null);
 
-    return expect(streamToPromise(output)).resolves.toBe('I have a link: <a href="getjerry://some/link-to-here">hello</a>');
+    return expect(streamToPromise(output, 'replace')).resolves.toBe('I have a link: <a href="getjerry://some/link-to-here">hello</a>');
   });
 });
