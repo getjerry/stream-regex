@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","names":["_streamRegex","require"],"sources":["../src/index.ts"],"sourcesContent":["export { StreamRegex } from './stream-regex';\n\n"],"mappings":";;;;;;;;;;;AAAA,IAAAA,YAAA,GAAAC,OAAA"}

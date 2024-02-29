@@ -9,6 +9,7 @@
     "target": "ES2017",
     "allowJs": true,
     "outDir": "dist",
+    "sourceMap": true,
   },
   "files": ["src/index.ts"]
 }
