@@ -1,0 +1,62 @@
+RegExp {
+  expression = "^"? (subExpression ( "|" subExpression )*)
+  
+  subExpression = expressionItem*
+  
+  expressionItem
+  	= anchor
+    | group
+    | match
+//  | Backreference -- Not supported
+
+  group
+  	= groupExpression
+//  | NamedGroupExpression -- Not supported
+  
+  groupExpression = "(" "?:"? expression ")" quantifier?
+  
+// NamedGroupExpression = NamedGroupPrefix Expression ")" Quantifier?
+   
+  match = matchItem quantifier?
+
+  matchItem = anyChar | matchCharacterClass | character
+
+  anyChar = "."
+  
+  escapeCharacter = "\\"
+
+  specialCharacter = anyChar | "^" | "*" | "?" | "+" | "\\" | "[" | "]" | "(" | ")" | "\\\\" | "|"
+  
+  characterClass = "\\w" | "\\W" | "\\d" | "\\D" | "\\s" | "\\S"
+
+  baseCharacter = ~specialCharacter any
+  
+  character = escapeCharacter specialCharacter | escapeCharacter? baseCharacter
+  
+  matchCharacterClass = characterGroup | characterClass
+  
+  characterGroup = "[" "^"? characterGroupInner "]"
+  
+  characterGroupInner = characterGroupItem*
+  
+  characterGroupItem = characterClass | characterRange | character | anyChar
+  
+  characterRange = characterRangeItem
+  
+  characterRangeItem = alnum "-" alnum
+
+  anchor = "$"
+  
+  quantifier = quantifierType "?"?
+  
+  quantifierType
+    = "*"
+    | "+"
+    | "?"
+//  | matchCount1
+//  | matchCount2
+  
+// matchCount1 = "{" digit+ "}"
+  
+// matchCount2 = "{" digit+ "," (digit+)? "}"
+}

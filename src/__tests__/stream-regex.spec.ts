@@ -1,0 +1,131 @@
+import { Readable } from 'stream';
+
+import chunk from 'lodash/chunk';
+import each from 'lodash/each';
+
+import { StreamRegex } from '../';
+
+/**
+ * Utility function to convert a string to a stream.
+ * Splits the string into chunks and pushes them into the stream.
+ *
+ * @param str
+ * @param chunkSize
+ */
+const stringToStream = (str: string, chunkSize: number): Readable => {
+  const stream = new Readable();
+  stream._read = () => {};
+  each(chunk(str, chunkSize), (chunk) => {
+    stream.push(chunk.join(''));
+  });
+  stream.push(null);
+  return stream;
+}
+
+/**
+ * Utility function to convert a stream to a promise that resolves to the data in the stream.
+ *
+ * @param stream
+ */
+const streamToPromise = (stream: Readable): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    stream.on('data', (chunk) => {
+      data += chunk.toString();
+    }).on('end', () => {
+      resolve(data);
+    }).on('error', (err) => {
+      reject(err);
+    });
+  });
+};
+
+describe('StreamRegex', () => {
+  it('/ab/ (match)', async () => {
+    const regex = /ab/;
+    const input = stringToStream('abcdef', 1);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('_ab_cdef');
+  });
+
+  it('/ab/ (no match)', async () => {
+    const regex = /ab/;
+    const input = stringToStream('bacdef', 1);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('bacdef');
+  });
+
+  it('/ab/i', async () => {
+    const regex = /ab/i;
+    const input = stringToStream('MMm...ab--XAbssBAB', 1);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('MMm..._ab_--XAbssBAB');
+  });
+
+  it('/ab/ig', async () => {
+    const regex = /ab/ig;
+    const input = stringToStream('MMm...ab--XAbssBAB', 5);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('MMm..._ab_--X_Ab_ssB_AB_');
+  });
+
+  it('/^ab/ (match)', async () => {
+    const regex = /^ab/;
+    const input = stringToStream('ab--XAbssBAB', 1);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('_ab_--XAbssBAB');
+  });
+
+  it('/^ab/ (no match)', async () => {
+    const regex = /^ab/;
+    const input = stringToStream('MMm...ab--XAbssBAB', 1);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('MMm...ab--XAbssBAB');
+  });
+
+  it('/ab$/i (match)', async () => {
+    const regex = /ab$/i;
+    const input = stringToStream('MMm...ab--XAbssBAB', 1);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('MMm...ab--XAbssB_AB_');
+  });
+
+  it('/ab$/i (no-match)', async () => {
+    const regex = /ab$/i;
+    const input = stringToStream('MMm...ab--XAbssBABa', 1);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`))).resolves.toBe('MMm...ab--XAbssBABa');
+  });
+
+  // eslint-disable-next-line no-useless-escape
+  it('/\[([^\]]+)\]\((getjerry:\/\/[\w-/]+)\)/i (match)', async () => {
+    const regex = /\[([^\]]+)\]\((getjerry:\/\/[\w-/]+)\)/i;
+    const input = stringToStream('[hello](getjerry://some/link-to-here)', 4);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.replace(input, (match, p1, p2) => `<a href="${p2}">${p1}</a>`))).resolves.toBe('<a href="getjerry://some/link-to-here">hello</a>');
+  });
+
+  // eslint-disable-next-line no-useless-escape
+  it('/\[([^\]]+)\]\((getjerry:\/\/[\w-/]+)\)/i (async iterator)', async () => {
+    const regex = /\[([^\]]+)\]\((getjerry:\/\/[\w-/]+)\)/i;
+    const asyncIterator = (async function* () {
+      yield 'I have a link: ';
+      yield '[hel';
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      yield 'lo](getjerry:/';
+      yield '/some/link-to-here)';
+    })();
+
+    const input = new Readable();
+    input._read = () => {};
+    const streamRegex = new StreamRegex(regex);
+    const output = streamRegex.replace(input, (match, p1, p2) => `<a href="${p2}">${p1}</a>`);
+
+    for await (const chunk of asyncIterator) {
+      input.push(chunk);
+    }
+    input.push(null);
+
+    return expect(streamToPromise(output)).resolves.toBe('I have a link: <a href="getjerry://some/link-to-here">hello</a>');
+  });
+});
