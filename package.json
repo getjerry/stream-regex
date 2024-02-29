@@ -12,7 +12,8 @@
   "scripts": {
     "grammar:gen": "ohm generateBundles --withTypes src/grammar/regex.ohm",
     "build": "npm run grammar:gen && babel src --out-dir dist --extensions \".ts,.js\" && tsc --emitDeclarationOnly",
-    "test": "jest"
+    "test": "jest",
+    "site": "bundle exec jekyll serve -s site/"
   },
   "author": "Musawir Shah <musawir@gmail.com>",
   "license": "ISC",

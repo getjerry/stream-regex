@@ -1,3 +1,5 @@
+---
+---
 # StreamRegex
 
 ![CI](https://github.com/getjerry/stream-regex/actions/workflows/node.js.yml/badge.svg) ![NPM Version](https://img.shields.io/npm/v/stream-regex)

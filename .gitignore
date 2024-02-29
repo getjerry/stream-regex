@@ -4,6 +4,9 @@ node_modules
 # tests in dist
 dist/**/*.spec.*
 
+# Jekyll build directory
+_site/
+
 # IDEs and editors
 /.idea
 .project
