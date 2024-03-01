@@ -2,6 +2,17 @@
 
 ![CI](https://github.com/getjerry/stream-regex/actions/workflows/node.js.yml/badge.svg) ![NPM Version](https://img.shields.io/npm/v/stream-regex)
 
+## What?
+
+`stream-regex` is a Node.js library that allows for executing regular expressions (match and replace) on a `Readable` stream.
+
+## Why?
+
+RegExp in JavaScript operates on strings. This means that the entire string must be available before the RegExp can be executed. If your input is a stream instead of a string, you would have to buffer the entire stream before you can execute the RegExp. For long streams, this may not be feasible. `stream-regex` allows you to execute RegExp on a stream without buffering the entire stream. It progressively matches the stream data as it arrives, maintaining the regex evaluation state between chunks. Only the segment of the input that has a potential to match is buffered at any given time. As soon as a match is determined, either matching or not matching, the result is emitted and the buffer is cleared.
+
+## Limitations
+
+`stream-regex` does not support the entire regular expression grammar that is supported by `RegExp` object. It is designed to work with simple regular expressions that can be evaluated progressively. Please see the grammar supported by `stream-regex` in the [src/grammar/regex.ohm](src/grammar/regex.ohm).
 
 ## Installation
 
@@ -22,7 +33,7 @@ const streamRegex = new StreamRegex(regexp: RegExp);
 The `match` method on `StreamRegex` takes a `Readable` stream to match against. A new stream is returned that will have the matched strings.
 
 ```typescript
-match(input: Readable, onMatch: (match: string) => void, options: MatchOptions = {}): void
+match(input: Readable, options: MatchOptions = {}): Readable
 ```
   
 ```typescript

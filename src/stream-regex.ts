@@ -53,10 +53,7 @@ export class StreamRegex {
     this.replace(input, (match) => {
       output.push(match);
       return match;
-    }, options).on('data', () => {
-      // Do nothing.
-    })
-    .on('end', () => {
+    }, options).resume().on('end', () => {
       output.push(null);
     });
     return output;
