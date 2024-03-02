@@ -74,7 +74,7 @@ export interface MatchOptions {
 
 ## Example
 
-Using `StreamRegex` on an async iterator:
+Using `StreamRegex` on an async iterator. [Run on Repl.it](https://replit.com/@musawir1/Example-for-stream-regex)
 
 ```typescript
 // Regex.
@@ -90,8 +90,7 @@ const asyncIterator = (async function* () {
 })();
 
 // Convert the async iterator to a readable stream.
-const input = new Readable();
-input._read = () => {};
+const input = Readable.from(asyncIterator);
 
 // Start the stream regex replacer.
 const streamRegex = new StreamRegex(regex);
@@ -105,11 +104,4 @@ output.on('data', (chunk) => {
   // Output: 'I have a link: <a href="getjerry://some/link-to-here">hello</a>'
   console.log(outputStr);
 });
-
-// Push chunks from the async iterator to the input stream.
-for await (const chunk of asyncIterator) {
-  input.push(chunk);
-}
-// End the input stream.
-input.push(null);
 ```
