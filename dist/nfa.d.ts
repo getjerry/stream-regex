@@ -37,6 +37,7 @@ interface MatchOptions {
     matchFromStart?: boolean;
     matchToEnd?: boolean;
     onReplace?: (val: string) => string;
+    processingStreamHighWaterMark?: number;
 }
 /**
  * Runs the NFA on the input string.

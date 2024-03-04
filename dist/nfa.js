@@ -501,18 +501,9 @@ const match = (start, input, options) => {
     greedy: true,
     global: false,
     ignoreCase: false,
+    processingStreamHighWaterMark: 1,
     ...options
   };
-  // Output stream
-  const replaceStream = new _stream.Readable();
-  replaceStream._read = () => {};
-
-  // First match success flag.
-  let matchSucceeded = false;
-  // Most recent matched string.
-  let lastMatchedString = undefined;
-  // Reject matching flag.
-  let rejectMatching = false;
 
   /**
    * Adds a state to the list. Handles the split nodes by adding both out and out1 states.
@@ -573,100 +564,72 @@ const match = (start, input, options) => {
    * Main function. Runs the NFA on the input stream.
    *
    * @param start
-   * @param input
    * @param greedy
-   * @param onResult
+   * @param highWaterMark
    */
-  const _doMatchStream = (start, input, greedy, onResult) => {
-    // Start the state list by adding the start state.
+  const _doMatchStream = (start, greedy, highWaterMark) => {
     let list = [];
-    addState(list, start);
     let strBuffer = '';
     let lastMatch = undefined;
-    let nfaExecuted = false;
-    input.on('data', chunk => {
-      const startBufferLength = strBuffer.length;
-      const str = chunk.toString();
-      strBuffer += str;
+    const matchStream = new _stream.PassThrough({
+      readableObjectMode: true,
+      writableHighWaterMark: highWaterMark
+    });
+    matchStream._write = (chunk, encoding, callback) => {
+      const chunkStr = chunk.toString();
+      for (let i = 0; i < chunkStr.length; i++) {
+        const char = chunkStr[i];
+        strBuffer += char;
+        if (list.length === 0) {
+          // Start the state list by adding the start state.
+          addState(list, start);
+        }
 
-      // Run the steps.
-      (0, _each.default)(str, (char, idx) => {
-        nfaExecuted = true;
-        // One step.
+        // Run one step of the NFA.
         list = step(list, char);
 
         // If we have a match, save the match and stop if not greedy.
         if ((0, _some.default)(list, state => state.type === 'Match')) {
           debugLogger('[_doMatchStream] Has match');
-          lastMatch = strBuffer.substring(0, startBufferLength + idx + 1);
+          lastMatch = strBuffer;
           if (!greedy) {
-            input.end();
-            return false;
+            matchStream.push({
+              matchedValue: lastMatch,
+              srcValue: strBuffer
+            });
+            strBuffer = '';
+            list = [];
+            lastMatch = undefined;
           }
         }
 
         // If we have no more states to go to, then there is a mismatch. Exit early.
         if (list.length === 0) {
           debugLogger('[_doMatchStream] No match - early exit');
-          input.end();
-          return false;
+          matchStream.push({
+            matchedValue: lastMatch,
+            srcValue: lastMatch ? strBuffer.substring(0, strBuffer.length - 1) : strBuffer
+          });
+          strBuffer = '';
+          list = [];
+          if (lastMatch) {
+            lastMatch = undefined;
+            i--;
+          }
         }
-      });
-    });
-    input.on('close', () => {
-      debugLogger('[_doMatchStream] input stream closed: %o', lastMatch);
-      onResult({
-        success: !!lastMatch,
-        val: lastMatch,
-        close: !nfaExecuted
-      });
-    });
-    input.on('end', () => {
-      debugLogger('[_doMatchStream] input stream ended: %o', lastMatch);
-      onResult({
-        success: !!lastMatch,
-        val: lastMatch,
-        close: !nfaExecuted
-      });
-    });
-  };
-
-  /**
-   * Creates a processing stream that buffers the string from the input stream, such that we can run the NFA on it.
-   *
-   * @param input - The input stream.
-   * @param onBufferChange - Callback that is called when the buffered string is updated.
-   * @param idx - The index to start buffering from.
-   * @param bufferedStr - The previously buffered string.
-   */
-  const createPassThroughStream = (input, onBufferChange, idx = 0, bufferedStr = '') => {
-    const procStream = new _stream.PassThrough();
-    procStream.push(bufferedStr.substring(idx));
-    let newBufferedStr = bufferedStr;
-    const passThrough = new _stream.PassThrough();
-    passThrough.on('data', chunk => {
-      const str = chunk.toString();
-      newBufferedStr += str;
-      onBufferChange(newBufferedStr);
-      if (!procStream.writableEnded) {
-        procStream.push(str);
-      } else {
-        input.unpipe(passThrough);
       }
-    }).on('end', () => {
-      debugLogger('[createPassThroughStream] passThrough stream ended');
-      procStream.end();
-    });
-    procStream.on('end', () => {
-      debugLogger('[createPassThroughStream] procStream ended');
-      passThrough.end();
-    });
-    input.pipe(passThrough);
-    if (input.readableEnded) {
-      debugLogger('[createPassThroughStream] input stream already ended');
-      procStream.end();
-    }
-    return procStream;
+      callback();
+    };
+
+    // Flush any pending match.
+    matchStream._final = callback => {
+      matchStream.push({
+        matchedValue: lastMatch,
+        srcValue: strBuffer
+      });
+      callback();
+    };
+    return matchStream;
   };
 
   /**
@@ -675,95 +638,62 @@ const match = (start, input, options) => {
    * @param start
    * @param input
    * @param options
-   * @param idx
-   * @param bufferedStr
    */
-  const doMatchStream = (start, input, options, idx = 0, bufferedStr = '') => {
-    let strBuffer = bufferedStr;
-    const procStream = createPassThroughStream(input, newBufferedStr => {
-      strBuffer = newBufferedStr;
-    }, idx, strBuffer);
-    let resv;
-    const prom = new Promise(resolve => {
-      resv = resolve;
-    });
-    _doMatchStream(start, procStream, options.greedy || false, ({
-      success,
-      val,
-      close
-    }) => {
-      debugLogger('[doMatchStream] match result: %o', {
-        success,
-        val
-      });
-      if (success && !val) {
-        // This should not happen.
-        throw new Error('Invalid state');
-      }
-      resv({
-        val,
-        close
-      });
-    });
-    prom.then(({
-      val: matchedStr,
-      close
-    }) => {
-      procStream.end();
-      debugLogger('[doMatchStream] processing result: %o', {
-        matchedStr,
-        strBuffer,
-        idx
-      });
-      const origStr = strBuffer.substring(idx, idx + 1);
-      let str = origStr;
-      let idxOffset = 1;
-      if (matchedStr) {
-        idxOffset = matchedStr.length;
-        str = matchedStr;
+  const doMatchStream = (start, input, options) => {
+    // Output stream.
+    const replaceStream = new _stream.Readable();
+    // TODO: Respect the highWaterMark.
+    replaceStream._read = () => {};
 
+    // First match success flag.
+    let matchSucceeded = false;
+    // Most recent matched string.
+    let lastMatchedString = undefined;
+    // Reject matching flag.
+    let rejectMatching = false;
+    const matchStream = _doMatchStream(start, options.greedy || false, options.processingStreamHighWaterMark);
+    input.pipe(matchStream).on('data', ({
+      matchedValue,
+      srcValue
+    }) => {
+      let str = srcValue;
+      if (matchedValue) {
         // If we're not matching globally, then we're done after the first match.
         if (!rejectMatching && (options.global || !matchSucceeded)) {
           if (options.onReplace) {
-            str = options.onReplace(matchedStr);
+            str = options.onReplace(matchedValue);
           }
         }
+        // Prevent further matching if we're matching globally.
+        matchSucceeded = true;
+
         // If we're not matching to the end of stream, push the matched string to the output stream.
         if (!options.matchToEnd) {
           replaceStream.push(str);
+        } else if (!rejectMatching) {
+          // Record this match (used for end matching).
+          // The replacement processing is done at the end when the stream is finished. If subsequent chunks are not matched, then we'll need the original source string.
+          // NOTE: `global` has no effect on `matchToEnd`.
+          lastMatchedString = matchedValue;
         }
-
-        // Record this match (used for end matching).
-        if (!rejectMatching) {
-          lastMatchedString = matchedStr;
-        } else {
-          lastMatchedString = `${lastMatchedString || ''}${matchedStr}`;
-        }
-        matchSucceeded = true;
       } else {
-        if (!close) {
-          rejectMatching = !!options.matchFromStart;
+        // Start rejecting future matches after the first non-match if we're matching from the start.
+        rejectMatching = !!options.matchFromStart;
+        // On a non-match, the last matched string is treated as an unmatched string.
+        if (lastMatchedString) {
+          replaceStream.push(lastMatchedString);
         }
-        if (!options.matchToEnd) {
-          replaceStream.push(origStr);
-        } else if (!close) {
-          if (lastMatchedString) {
-            replaceStream.push(lastMatchedString);
-          }
-          replaceStream.push(origStr);
-          lastMatchedString = undefined;
+        replaceStream.push(str);
+        lastMatchedString = undefined;
+      }
+    }).on('finish', () => {
+      // If we're matching to the end of stream, if a match has survived, run the replacement process and push to output.
+      if (options.matchToEnd) {
+        if (lastMatchedString) {
+          replaceStream.push(options.onReplace ? options.onReplace(lastMatchedString) : lastMatchedString);
         }
       }
-      if (idx + idxOffset <= strBuffer.length) {
-        doMatchStream(start, input, options, idx + idxOffset, strBuffer);
-      } else {
-        if (options.matchToEnd) {
-          if (lastMatchedString) {
-            replaceStream.push(!rejectMatching && options.onReplace ? options.onReplace(lastMatchedString) : lastMatchedString);
-          }
-        }
-        replaceStream.push(null);
-      }
+      replaceStream.push(null);
     });
     return replaceStream;
   };
