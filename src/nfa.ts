@@ -43,6 +43,61 @@ const createRangePostfixNodes = (node: AST, start: string, end: string, pfNodes:
   return newNodes;
 }
 
+const createPostfixNodesWithQuantifier = (operands: PostfixNode[], quantifier: PostfixNode[]): PostfixNode[] => {
+  // Single character quantifier (`?` or `*` or `+`)
+  if (quantifier.length <= 1) {
+    return [
+      ...operands,
+      ...quantifier,
+    ];
+  }
+  // Range quantifier (`{m,n}`)
+  const minStr = quantifier[0].value;
+  const maxStr = quantifier[1].value;
+  if (isArray(minStr) || isArray(maxStr)) {
+    throw new Error(`Invalid quantifier: ${minStr} - ${maxStr}`);
+  }
+
+  const min = minStr ? parseInt(minStr, 10) : 0;
+  const max = maxStr ? parseInt(maxStr, 10) : -1;
+  if (max !== -1 && max < min) {
+    throw new Error(`Invalid quantifier: ${min} - ${max}`);
+  }
+
+  // To handle the `min`, we concatenate the operands `min` times.
+  let pushCount = 0;
+  const res: PostfixNode[] = [];
+  each(range(0, min), () => {
+    res.push(...operands);
+    pushCount++;
+    if (pushCount > 1) {
+      res.push({ from: 'quantifier', type: 'operator', value: '.' });
+    }
+  });
+
+  // If max is not specified (i.e. -1), then we match 0 or more times.
+  if (max === -1) {
+    res.push(...operands);
+    res.push({ from: 'quantifier', type: 'operator', value: '*' });
+    pushCount++;
+    if (pushCount > 1) {
+      res.push({ from: 'quantifier', type: 'operator', value: '.' });
+    }
+  } else {
+    // To handle the `max`, we add the operands "optionally" `max - min` times.
+    each(range(min, max), () => {
+      res.push(...operands);
+      res.push({ from: 'quantifier', type: 'operator', value: '?' });
+      pushCount++;
+      if (pushCount > 1) {
+        res.push({ from: 'quantifier', type: 'operator', value: '.' });
+      }
+    });
+  }
+
+  return res;
+}
+
 /**
  * Converts an AST to postfix notation.
  *
@@ -134,20 +189,41 @@ export const createPostfix = (regex: RegExp) => {
         }
       case 'groupExpression':
         {
-          const quantifier = getValue(node.value[4]);
-          return [
-            ..._createPostfix(node.value[2], notEqual),
-            ...(quantifier ? [{ from: node.type, type: 'operator', value: quantifier }] : []),
-          ];
+          const quantifier = node.value[4].value.length ? _createPostfix(node.value[4].value[0], notEqual) : [];
+          const operands = _createPostfix(node.value[2], notEqual);
+          return createPostfixNodesWithQuantifier(operands, quantifier); 
+          // return [
+          //   ..._createPostfix(node.value[2], notEqual),
+          //   ...(quantifier ? [{ from: node.type, type: 'operator', value: quantifier }] : []),
+          // ];
         }
       case 'match':
         {
-          const quantifier = getValue(node.value[1]);
-          return [
-            ..._createPostfix(node.value[0], notEqual),
-            ...(quantifier ? [{ from: node.type, type: 'operator', value: quantifier }] : []),
-          ];
+          const quantifier = node.value[1].value.length ? _createPostfix(node.value[1].value[0], notEqual) : [];
+          const operands = _createPostfix(node.value[0], notEqual);
+          return createPostfixNodesWithQuantifier(operands, quantifier);
+          // return [
+          //   ..._createPostfix(node.value[0], notEqual),
+          //   ...(quantifier ? [{ from: node.type, type: 'operator', value: quantifier }] : []),
+          // ];
         }
+      case 'quantifier':
+        return _createPostfix(node.value[0], notEqual);
+      case 'quantifierType':
+        if (node.value.length === 0) {
+          return [];
+        }
+        if (node.value[0].value.length === 1) {
+          return [{ from: node.type, type: 'operator', value: getValue(node) }];
+        }
+        return _createPostfix(node.value[0], notEqual);
+      case 'matchCount1':
+        {
+          const count = getValue(node.value[1]);
+          return [{ from: node.type, type: 'operator', value: count }, { from: node.type, type: 'operator', value: count }];
+        }
+      case 'matchCount2':
+        return [{ from: node.type, type: 'operator', value: getValue(node.value[1]) }, { from: node.type, type: 'operator', value: getValue(node.value[3]) }];
       case 'character':
       case 'characterClass':
         {

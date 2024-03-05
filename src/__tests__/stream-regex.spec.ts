@@ -154,4 +154,25 @@ describe('StreamRegex', () => {
     const prom = streamToPromise(output, 'replace').then((text) => ({ text, actions }));
     await expect(prom).resolves.toEqual({ text: 'Hello, how can I assist you today? This is a sample text.', actions: ['action1({"a":1})', 'action2()', 'action3()'] });
   });
+
+  it('supports {n} quantifier', async () => {
+    const regex = /a+b{1}[cd]{2}(ef)/g;
+    const input = stringToStream('abaabcbaaaeaaabdcef333', 3);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.match(input), 'match')).resolves.toEqual(['aaabdcef']);
+  });
+
+  it('supports {n,m} quantifier', async () => {
+    const regex = /a+b{1,5}[cd]{2}(ef)/g;
+    const input = stringToStream('abaabcbaaaeaaabbdcef333', 3);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.match(input), 'match')).resolves.toEqual(['aaabbdcef']);
+  });
+
+  it('supports {n,} quantifier', async () => {
+    const regex = /a+b{1,}[cd]{2}(ef)/g;
+    const input = stringToStream('abaabcbaaaeaaabbdcef333', 3);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.match(input), 'match')).resolves.toEqual(['aaabbdcef']);
+  });
 });

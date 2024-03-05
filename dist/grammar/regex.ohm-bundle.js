@@ -4,7 +4,7 @@ const {
   makeRecipe
 } = require('ohm-js');
 const result = makeRecipe(["grammar", {
-  "source": "RegExp {\n  expression = \"^\"? (subExpression ( \"|\" subExpression )*)\n  \n  subExpression = expressionItem*\n  \n  expressionItem\n  \t= anchor\n    | group\n    | match\n//  | Backreference -- Not supported\n\n  group\n  \t= groupExpression\n//  | NamedGroupExpression -- Not supported\n  \n  groupExpression = \"(\" \"?:\"? expression \")\" quantifier?\n  \n// NamedGroupExpression = NamedGroupPrefix Expression \")\" Quantifier?\n   \n  match = matchItem quantifier?\n\n  matchItem = anyChar | matchCharacterClass | character\n\n  anyChar = \".\"\n  \n  escapeCharacter = \"\\\\\"\n\n  specialCharacter = anyChar | \"^\" | \"*\" | \"?\" | \"+\" | \"\\\\\" | \"[\" | \"]\" | \"(\" | \")\" | \"\\\\\\\\\" | \"|\"\n  \n  characterClass = \"\\\\w\" | \"\\\\W\" | \"\\\\d\" | \"\\\\D\" | \"\\\\s\" | \"\\\\S\"\n\n  baseCharacter = ~specialCharacter any\n  \n  character = escapeCharacter specialCharacter | escapeCharacter? baseCharacter\n  \n  matchCharacterClass = characterGroup | characterClass\n  \n  characterGroup = \"[\" \"^\"? characterGroupInner \"]\"\n  \n  characterGroupInner = characterGroupItem*\n  \n  characterGroupItem = characterClass | characterRange | character | anyChar\n  \n  characterRange = characterRangeItem\n  \n  characterRangeItem = alnum \"-\" alnum\n\n  anchor = \"$\"\n  \n  quantifier = quantifierType \"?\"?\n  \n  quantifierType\n    = \"*\"\n    | \"+\"\n    | \"?\"\n//  | matchCount1\n//  | matchCount2\n  \n// matchCount1 = \"{\" digit+ \"}\"\n  \n// matchCount2 = \"{\" digit+ \",\" (digit+)? \"}\"\n}"
+  "source": "RegExp {\n  expression = \"^\"? (subExpression ( \"|\" subExpression )*)\n  \n  subExpression = expressionItem*\n  \n  expressionItem\n  \t= anchor\n    | group\n    | match\n//  | Backreference -- Not supported\n\n  group\n  \t= groupExpression\n//  | NamedGroupExpression -- Not supported\n  \n  groupExpression = \"(\" \"?:\"? expression \")\" quantifier?\n  \n// NamedGroupExpression = NamedGroupPrefix Expression \")\" Quantifier?\n   \n  match = matchItem quantifier?\n\n  matchItem = anyChar | matchCharacterClass | character\n\n  anyChar = \".\"\n  \n  escapeCharacter = \"\\\\\"\n\n  specialCharacter = anyChar | \"^\" | \"*\" | \"?\" | \"+\" | \"\\\\\" | \"[\" | \"]\" | \"(\" | \")\" | \"\\\\\\\\\" | \"|\"\n  \n  characterClass = \"\\\\w\" | \"\\\\W\" | \"\\\\d\" | \"\\\\D\" | \"\\\\s\" | \"\\\\S\"\n\n  baseCharacter = ~specialCharacter any\n  \n  character = escapeCharacter specialCharacter | escapeCharacter? baseCharacter\n  \n  matchCharacterClass = characterGroup | characterClass\n  \n  characterGroup = \"[\" \"^\"? characterGroupInner \"]\"\n  \n  characterGroupInner = characterGroupItem*\n  \n  characterGroupItem = characterClass | characterRange | character | anyChar\n  \n  characterRange = characterRangeItem\n  \n  characterRangeItem = alnum \"-\" alnum\n\n  anchor = \"$\"\n  \n  quantifier = quantifierType \"?\"?\n  \n  quantifierType\n    = \"*\"\n    | \"+\"\n    | \"?\"\n    | matchCount1\n    | matchCount2\n    \n  matchCount1 = \"{\" digit+ \"}\"\n  matchCount2 = \"{\" (digit+)? \",\" (digit+)? \"}\"\n}"
 }, "RegExp", null, "expression", {
   "expression": ["define", {
     "sourceInterval": [11, 67]
@@ -252,16 +252,56 @@ const result = makeRecipe(["grammar", {
     "sourceInterval": [1208, 1211]
   }, "?"]]]],
   "quantifierType": ["define", {
-    "sourceInterval": [1218, 1262]
+    "sourceInterval": [1218, 1298]
   }, null, [], ["alt", {
-    "sourceInterval": [1239, 1262]
+    "sourceInterval": [1239, 1298]
   }, ["terminal", {
     "sourceInterval": [1239, 1242]
   }, "*"], ["terminal", {
     "sourceInterval": [1249, 1252]
   }, "+"], ["terminal", {
     "sourceInterval": [1259, 1262]
-  }, "?"]]]
+  }, "?"], ["app", {
+    "sourceInterval": [1269, 1280]
+  }, "matchCount1", []], ["app", {
+    "sourceInterval": [1287, 1298]
+  }, "matchCount2", []]]],
+  "matchCount1": ["define", {
+    "sourceInterval": [1306, 1334]
+  }, null, [], ["seq", {
+    "sourceInterval": [1320, 1334]
+  }, ["terminal", {
+    "sourceInterval": [1320, 1323]
+  }, "{"], ["plus", {
+    "sourceInterval": [1324, 1330]
+  }, ["app", {
+    "sourceInterval": [1324, 1329]
+  }, "digit", []]], ["terminal", {
+    "sourceInterval": [1331, 1334]
+  }, "}"]]],
+  "matchCount2": ["define", {
+    "sourceInterval": [1337, 1382]
+  }, null, [], ["seq", {
+    "sourceInterval": [1351, 1382]
+  }, ["terminal", {
+    "sourceInterval": [1351, 1354]
+  }, "{"], ["opt", {
+    "sourceInterval": [1355, 1364]
+  }, ["plus", {
+    "sourceInterval": [1356, 1362]
+  }, ["app", {
+    "sourceInterval": [1356, 1361]
+  }, "digit", []]]], ["terminal", {
+    "sourceInterval": [1365, 1368]
+  }, ","], ["opt", {
+    "sourceInterval": [1369, 1378]
+  }, ["plus", {
+    "sourceInterval": [1370, 1376]
+  }, ["app", {
+    "sourceInterval": [1370, 1375]
+  }, "digit", []]]], ["terminal", {
+    "sourceInterval": [1379, 1382]
+  }, "}"]]]
 }]);
 module.exports = result;
 //# sourceMappingURL=regex.ohm-bundle.js.map

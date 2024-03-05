@@ -33,7 +33,9 @@ export interface RegExpActionDict<T> extends BaseActionDict<T> {
   characterRangeItem?: (this: NonterminalNode, arg0: NonterminalNode, arg1: TerminalNode, arg2: NonterminalNode) => T;
   anchor?: (this: NonterminalNode, arg0: TerminalNode) => T;
   quantifier?: (this: NonterminalNode, arg0: NonterminalNode, arg1: IterationNode) => T;
-  quantifierType?: (this: NonterminalNode, arg0: TerminalNode) => T;
+  quantifierType?: (this: NonterminalNode, arg0: NonterminalNode | TerminalNode) => T;
+  matchCount1?: (this: NonterminalNode, arg0: TerminalNode, arg1: IterationNode, arg2: TerminalNode) => T;
+  matchCount2?: (this: NonterminalNode, arg0: TerminalNode, arg1: IterationNode, arg2: TerminalNode, arg3: IterationNode, arg4: TerminalNode) => T;
 }
 
 export interface RegExpSemantics extends Semantics {

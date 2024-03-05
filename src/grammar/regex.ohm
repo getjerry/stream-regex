@@ -53,10 +53,9 @@ RegExp {
     = "*"
     | "+"
     | "?"
-//  | matchCount1
-//  | matchCount2
-  
-// matchCount1 = "{" digit+ "}"
-  
-// matchCount2 = "{" digit+ "," (digit+)? "}"
+    | matchCount1
+    | matchCount2
+    
+  matchCount1 = "{" digit+ "}"
+  matchCount2 = "{" (digit+)? "," (digit+)? "}"
 }
