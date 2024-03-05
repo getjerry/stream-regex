@@ -130,4 +130,28 @@ describe('StreamRegex', () => {
 
     return expect(streamToPromise(output, 'replace')).resolves.toBe('I have a link: <a href="getjerry://some/link-to-here">hello</a>');
   });
+
+  it('works with (?:)', async () => {
+    const input = new Readable();
+    const regex = /(?:<|\[)\s*ACTION:\s*([\w-]+)\s*(?:;\s*DATA:\s*({[^>\]]+}))?\s*(?:>|\])/gi;
+    const streamRegex = new StreamRegex(regex);
+
+    const actions: string[] = [];
+    const output = streamRegex.replace(input, (match, action, data) => {
+      actions.push(`${action}(${data || ''})`);
+      return '';
+    });
+
+    input.push('Hell');
+    input.push('o, ho');
+    input.push('w can I assist you today?');
+    input.push('<ACTI');
+    input.push('ON:action1;DATA:{');
+    input.push('"a":1}> This is a<ACTION: acti');
+    input.push('on2> sample <action:  action3>text.');
+    input.push(null);
+
+    const prom = streamToPromise(output, 'replace').then((text) => ({ text, actions }));
+    await expect(prom).resolves.toEqual({ text: 'Hello, how can I assist you today? This is a sample text.', actions: ['action1({"a":1})', 'action2()', 'action3()'] });
+  });
 });
