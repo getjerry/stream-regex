@@ -38,7 +38,9 @@ class StreamRegex {
    * @param options
    */
   match(input, options = {}) {
-    const output = new _stream.Readable();
+    const output = new _stream.Readable({
+      objectMode: true
+    });
     output._read = () => {};
     this.replace(input, match => {
       output.push(match);

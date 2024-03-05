@@ -8,7 +8,12 @@ import { PostfixNode, createPostfix, postfixToNFA, State, match } from './nfa';
 const debugLogger = debug('StreamRegex');
 
 export interface MatchOptions {
+  // If true, the algorithm will try to match the longest possible string. If false, it will try to match the shortest possible string.
+  // default: true
   greedy?: boolean;
+  // Size of the highWaterMark for the processing stream.
+  // default: 1024
+  processingStreamHighWaterMark?: number;
 }
 
 /**
@@ -47,7 +52,7 @@ export class StreamRegex {
    * @param options
    */
   match(input: Readable, options: MatchOptions = {}): Readable {
-    const output = new Readable();
+    const output = new Readable({ objectMode: true });
     output._read = () => {};
 
     this.replace(input, (match) => {

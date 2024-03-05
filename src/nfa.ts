@@ -380,14 +380,18 @@ interface MatchOptions {
   // default: false
   global?: boolean;
   // If true, the algorithm will ignore the case of the input string.
+  // default: false
   ignoreCase?: boolean;
   // If true, the algorithm will match from the start of the input string.
+  // default: false
   matchFromStart?: boolean;
   // If true, the algorithm will match to the end of the input string.
+  // default: false
   matchToEnd?: boolean;
   // If provided, the algorithm will replace the matched string with the return value of this function.
   onReplace?: (val: string) => string;
   // Size of the highWaterMark for the processing stream.
+  // default: 1024
   processingStreamHighWaterMark?: number;
 }
 
@@ -413,7 +417,7 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
     greedy: true,
     global: false,
     ignoreCase: false,
-    processingStreamHighWaterMark: 1,
+    processingStreamHighWaterMark: 1024,
     ...options,
   };
 

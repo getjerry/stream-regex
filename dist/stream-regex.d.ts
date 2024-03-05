@@ -2,6 +2,7 @@
 import { Readable } from 'stream';
 export interface MatchOptions {
     greedy?: boolean;
+    processingStreamHighWaterMark?: number;
 }
 /**
  * StreamRegex - A class to handle regex matching on a stream of data.

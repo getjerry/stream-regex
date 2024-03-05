@@ -501,7 +501,7 @@ const match = (start, input, options) => {
     greedy: true,
     global: false,
     ignoreCase: false,
-    processingStreamHighWaterMark: 1,
+    processingStreamHighWaterMark: 1024,
     ...options
   };
 
