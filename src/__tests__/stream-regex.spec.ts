@@ -123,8 +123,7 @@ describe('StreamRegex', () => {
     })();
 
     const input = new Readable();
-    input._read = () => {
-    };
+    input._read = () => {};
     const streamRegex = new StreamRegex(regex);
     const output = streamRegex.replace(input, (match, p1, p2) => `<a href="${p2}">${p1}</a>`);
 

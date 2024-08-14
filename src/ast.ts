@@ -53,9 +53,7 @@ export const getAST = (regex: RegExp): AST => {
  */
 export const getValue = (node: AST): string => {
   if (node.type === '_terminal') {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    return Array.from(node.value[0]).join('');
+    return (new String(node.value[0])).toString();
   }
 
   return map(node.value, (child) => getValue(child)).join('');
