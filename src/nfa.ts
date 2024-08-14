@@ -573,11 +573,9 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
     const matchStream = new PassThrough({ readableObjectMode: true, writableHighWaterMark: highWaterMark });
     matchStream._write = (chunk, encoding, callback) => {
       const chunkStr = chunk.toString();
-      console.log('chunk:', chunkStr);
       const graphemes = splitter.splitGraphemes(chunkStr);
 
       for (const grapheme of graphemes) {
-        console.log('grapheme:', grapheme);
         strBuffer += grapheme;
 
         if (list.length === 0) {
