@@ -35,15 +35,12 @@ export interface PostfixNode {
  */
 const createRangePostfixNodes = (node: AST, start: string, end: string, pfNodes: PostfixNode[], notEqual?: boolean): PostfixNode[] => {
   const newNodes = [...pfNodes];
-  const startCode = start.codePointAt(0) || 0;
-  const endCode = end.codePointAt(0) || 0;
-  for (let codePoint = startCode; codePoint <= endCode; codePoint++) {
-    const char = String.fromCodePoint(codePoint);
-    newNodes.push({ from: node.type, type: 'operand', value: char, notEqual });
+  each(range(start.charCodeAt(0), end.charCodeAt(0) + 1), (charCode) => {
+    newNodes.push({ from: node.type, type: 'operand', value: String.fromCharCode(charCode), notEqual });
     if (newNodes.length > 1) {
       newNodes.push({ from: node.type, type: 'operator', value: '|' });
     }
-  }
+  });
   return newNodes;
 }
 
