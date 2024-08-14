@@ -1,8 +1,5 @@
 import { Readable } from 'stream';
-
-import chunk from 'lodash/chunk';
-import each from 'lodash/each';
-
+import Graphemer from 'graphemer';
 import { StreamRegex } from '../';
 
 /**
@@ -14,13 +11,20 @@ import { StreamRegex } from '../';
  */
 const stringToStream = (str: string, chunkSize: number): Readable => {
   const stream = new Readable();
-  stream._read = () => {};
-  each(chunk(str, chunkSize), (chunk) => {
-    stream.push(chunk.join(''));
-  });
+  stream._read = () => {
+  };
+
+  const graphemer = new Graphemer();
+  const graphemes = graphemer.splitGraphemes(str);
+
+  for (let i = 0; i < graphemes.length; i += chunkSize) {
+    const chunk = graphemes.slice(i, i + chunkSize).join('');
+    stream.push(chunk);
+  }
+
   stream.push(null);
   return stream;
-}
+};
 
 /**
  * Utility function to convert a stream to a promise that resolves to the data in the stream.
@@ -119,7 +123,8 @@ describe('StreamRegex', () => {
     })();
 
     const input = new Readable();
-    input._read = () => {};
+    input._read = () => {
+    };
     const streamRegex = new StreamRegex(regex);
     const output = streamRegex.replace(input, (match, p1, p2) => `<a href="${p2}">${p1}</a>`);
 
@@ -152,7 +157,10 @@ describe('StreamRegex', () => {
     input.push(null);
 
     const prom = streamToPromise(output, 'replace').then((text) => ({ text, actions }));
-    await expect(prom).resolves.toEqual({ text: 'Hello, how can I assist you today? This is a sample text.', actions: ['action1({"a":1})', 'action2()', 'action3()'] });
+    await expect(prom).resolves.toEqual({
+      text: 'Hello, how can I assist you today? This is a sample text.',
+      actions: ['action1({"a":1})', 'action2()', 'action3()'],
+    });
   });
 
   it('supports {n} quantifier', async () => {
@@ -174,5 +182,17 @@ describe('StreamRegex', () => {
     const input = stringToStream('abaabcbaaaeaaabbdcef333', 3);
     const streamRegex = new StreamRegex(regex);
     return expect(streamToPromise(streamRegex.match(input), 'match')).resolves.toEqual(['aaabbdcef']);
+  });
+  it('support handle emoji', async () => {
+    const regex = /👍/g;
+    const input = stringToStream('😄👍', 1);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.match(input), 'match')).resolves.toEqual(['👍']);
+  });
+  it('support handle emoji replace', async () => {
+    const regex = /👍/g;
+    const input = stringToStream('😄👍', 1);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`), 'replace')).resolves.toBe('😄_👍_');
   });
 });

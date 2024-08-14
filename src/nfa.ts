@@ -1,6 +1,7 @@
 import { Readable, PassThrough } from 'stream';
 
 import debug from 'debug';
+import Graphemer from 'graphemer';
 import each from 'lodash/each';
 import isNil from 'lodash/isNil';
 import range from 'lodash/range';
@@ -34,12 +35,15 @@ export interface PostfixNode {
  */
 const createRangePostfixNodes = (node: AST, start: string, end: string, pfNodes: PostfixNode[], notEqual?: boolean): PostfixNode[] => {
   const newNodes = [...pfNodes];
-  each(range(start.charCodeAt(0), end.charCodeAt(0) + 1), (charCode) => {
-    newNodes.push({ from: node.type, type: 'operand', value: String.fromCharCode(charCode), notEqual });
+  const startCode = start.codePointAt(0) || 0;
+  const endCode = end.codePointAt(0) || 0;
+  for (let codePoint = startCode; codePoint <= endCode; codePoint++) {
+    const char = String.fromCodePoint(codePoint);
+    newNodes.push({ from: node.type, type: 'operand', value: char, notEqual });
     if (newNodes.length > 1) {
       newNodes.push({ from: node.type, type: 'operator', value: '|' });
     }
-  });
+  }
   return newNodes;
 }
 
@@ -191,7 +195,7 @@ export const createPostfix = (regex: RegExp) => {
         {
           const quantifier = node.value[4].value.length ? _createPostfix(node.value[4].value[0], notEqual) : [];
           const operands = _createPostfix(node.value[2], notEqual);
-          return createPostfixNodesWithQuantifier(operands, quantifier); 
+          return createPostfixNodesWithQuantifier(operands, quantifier);
           // return [
           //   ..._createPostfix(node.value[2], notEqual),
           //   ...(quantifier ? [{ from: node.type, type: 'operator', value: quantifier }] : []),
@@ -444,7 +448,7 @@ export const postfixToNFA = (postfix: PostfixNode[]): State | undefined => {
     throw new Error('Invalid postfix expression');
   }
   patch(e.out, { type: 'Match', out: null, out1: null });
-  
+
   return e.start;
 };
 
@@ -518,26 +522,26 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
     }
     list.push(s);
   }
-  
+
   /**
    * Runs one step of NFA on the input character.
    * The output is the next state list.
    *
    * @param list
-   * @param char
+   * @param grapheme - A grapheme is the smallest unit of a writing system that is capable of conveying a distinct meaning.
    */
-  const step = (list: State[], char: string) => {
-    debugLogger('[step] Step: %o', { listID, char });
+  const step = (list: State[], grapheme: string) => {
+    debugLogger('[step] Step: %o', { listID, grapheme });
 
     listID++;
     const nextStates: State[] = [];
     each(list, (state) => {
       if (state.type === 'Char' && !isNil(state.char)) {
-        const srcChar = opts.ignoreCase ? char.toLowerCase() : char;
+        const srcGrapheme = opts.ignoreCase ? grapheme.toLowerCase() : grapheme;
         const stateCharArray = isArray(state.char) ? state.char : [state.char];
         const hasMatch = every(stateCharArray, (stateChar) => {
-          const stateCharLower = opts.ignoreCase ? stateChar.toLowerCase() : stateChar;
-          return (state.notEqual ? stateCharLower !== srcChar : stateCharLower === srcChar);
+          const stateGrapheme = opts.ignoreCase ? stateChar.toLowerCase() : stateChar;
+          return (state.notEqual ? stateGrapheme !== srcGrapheme : stateGrapheme === srcGrapheme);
         });
         if (hasMatch) {
           debugLogger('[step] Match: %o', state);
@@ -564,21 +568,24 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
 
     let strBuffer = '';
     let lastMatch: string | undefined = undefined;
+    const splitter = new Graphemer();
 
     const matchStream = new PassThrough({ readableObjectMode: true, writableHighWaterMark: highWaterMark });
     matchStream._write = (chunk, encoding, callback) => {
       const chunkStr = chunk.toString();
-      for (let i = 0; i < chunkStr.length; i++) {
-        const char = chunkStr[i];
-        strBuffer += char;
+      console.log('chunk:', chunkStr);
+      const graphemes = splitter.splitGraphemes(chunkStr);
+
+      for (const grapheme of graphemes) {
+        console.log('grapheme:', grapheme);
+        strBuffer += grapheme;
 
         if (list.length === 0) {
           // Start the state list by adding the start state.
           addState(list, start);
         }
 
-        // Run one step of the NFA.
-        list = step(list, char);
+        list = step(list, grapheme);
 
         // If we have a match, save the match and stop if not greedy.
         if (some(list, (state) => state.type === 'Match')) {
@@ -596,12 +603,14 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
         // If we have no more states to go to, then there is a mismatch. Exit early.
         if (list.length === 0) {
           debugLogger('[_doMatchStream] No match - early exit');
-          matchStream.push({ matchedValue: lastMatch, srcValue: lastMatch ? strBuffer.substring(0, strBuffer.length - 1) : strBuffer });
+          matchStream.push({ matchedValue: lastMatch, srcValue: lastMatch ? strBuffer.substring(0, strBuffer.length - grapheme.length) : strBuffer });
           strBuffer = '';
           list = [];
           if (lastMatch) {
             lastMatch = undefined;
-            i--;
+            // Move back one grapheme
+            strBuffer = grapheme;
+            addState(list, start);
           }
         }
       }

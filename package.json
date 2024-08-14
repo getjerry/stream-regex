@@ -19,6 +19,7 @@
   "license": "ISC",
   "dependencies": {
     "debug": "^4.3.4",
+    "graphemer": "^1.4.0",
     "lodash": "^4.17.21",
     "ohm-js": "^17.1.0"
   },
