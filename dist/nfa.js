@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", {
 exports.postfixToNFA = exports.match = exports.createPostfix = void 0;
 var _stream = require("stream");
 var _debug = _interopRequireDefault(require("debug"));
+var _graphemer = _interopRequireDefault(require("graphemer"));
 var _each = _interopRequireDefault(require("lodash/each"));
 var _isNil = _interopRequireDefault(require("lodash/isNil"));
 var _range = _interopRequireDefault(require("lodash/range"));
@@ -639,22 +640,22 @@ const match = (start, input, options) => {
    * The output is the next state list.
    *
    * @param list
-   * @param char
+   * @param grapheme - A grapheme is the smallest unit of a writing system that is capable of conveying a distinct meaning.
    */
-  const step = (list, char) => {
+  const step = (list, grapheme) => {
     debugLogger('[step] Step: %o', {
       listID,
-      char
+      grapheme
     });
     listID++;
     const nextStates = [];
     (0, _each.default)(list, state => {
       if (state.type === 'Char' && !(0, _isNil.default)(state.char)) {
-        const srcChar = opts.ignoreCase ? char.toLowerCase() : char;
+        const srcGrapheme = opts.ignoreCase ? grapheme.toLowerCase() : grapheme;
         const stateCharArray = (0, _isArray.default)(state.char) ? state.char : [state.char];
         const hasMatch = (0, _every.default)(stateCharArray, stateChar => {
-          const stateCharLower = opts.ignoreCase ? stateChar.toLowerCase() : stateChar;
-          return state.notEqual ? stateCharLower !== srcChar : stateCharLower === srcChar;
+          const stateGrapheme = opts.ignoreCase ? stateChar.toLowerCase() : stateChar;
+          return state.notEqual ? stateGrapheme !== srcGrapheme : stateGrapheme === srcGrapheme;
         });
         if (hasMatch) {
           debugLogger('[step] Match: %o', state);
@@ -679,22 +680,21 @@ const match = (start, input, options) => {
     let list = [];
     let strBuffer = '';
     let lastMatch = undefined;
+    const splitter = new _graphemer.default();
     const matchStream = new _stream.PassThrough({
       readableObjectMode: true,
       writableHighWaterMark: highWaterMark
     });
     matchStream._write = (chunk, encoding, callback) => {
       const chunkStr = chunk.toString();
-      for (let i = 0; i < chunkStr.length; i++) {
-        const char = chunkStr[i];
-        strBuffer += char;
+      const graphemes = splitter.splitGraphemes(chunkStr);
+      for (const grapheme of graphemes) {
+        strBuffer += grapheme;
         if (list.length === 0) {
           // Start the state list by adding the start state.
           addState(list, start);
         }
-
-        // Run one step of the NFA.
-        list = step(list, char);
+        list = step(list, grapheme);
 
         // If we have a match, save the match and stop if not greedy.
         if ((0, _some.default)(list, state => state.type === 'Match')) {
@@ -716,13 +716,15 @@ const match = (start, input, options) => {
           debugLogger('[_doMatchStream] No match - early exit');
           matchStream.push({
             matchedValue: lastMatch,
-            srcValue: lastMatch ? strBuffer.substring(0, strBuffer.length - 1) : strBuffer
+            srcValue: lastMatch ? strBuffer.substring(0, strBuffer.length - grapheme.length) : strBuffer
           });
           strBuffer = '';
           list = [];
           if (lastMatch) {
             lastMatch = undefined;
-            i--;
+            // Move back one grapheme
+            strBuffer = grapheme;
+            addState(list, start);
           }
         }
       }
