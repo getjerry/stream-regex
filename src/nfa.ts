@@ -117,97 +117,97 @@ export const createPostfix = (regex: RegExp) => {
   const _createPostfix = (node: AST, notEqual: boolean | undefined): PostfixNode[] => {
     switch (node.type) {
       case 'expression':
-        {
-          hasStartMatcher = node.value[0].value.length !== 0;
-          const pfNodes: PostfixNode[] = [];
-          each([node.value[1], ...node.value[3].value], (subExp, idx) => {
-            pfNodes.push(..._createPostfix(subExp, notEqual));
-            if (idx > 0 && idx <= node.value[3].value.length) {
-              pfNodes.push({ from: node.type, type: 'operator', value: '|' });
-            }
-          });
-          return pfNodes;
-        }
+      {
+        hasStartMatcher = node.value[0].value.length !== 0;
+        const pfNodes: PostfixNode[] = [];
+        each([node.value[1], ...node.value[3].value], (subExp, idx) => {
+          pfNodes.push(..._createPostfix(subExp, notEqual));
+          if (idx > 0 && idx <= node.value[3].value.length) {
+            pfNodes.push({ from: node.type, type: 'operator', value: '|' });
+          }
+        });
+        return pfNodes;
+      }
       case 'subExpression':
-        {
-          // This node is an iteration list. Unroll.
-          const expressionItems = node.value[0].value;
-          const pfNodes: PostfixNode[] = [];
-          each(expressionItems, (expressionItem, idx) => {
-            hasEndMatcher = getValue(expressionItem) === '$';
-            if (hasEndMatcher) {
-              return false;
-            }
-            pfNodes.push(..._createPostfix(expressionItem, notEqual));
-            if (idx > 0 && idx < expressionItems.length) {
-              pfNodes.push({ from: node.type, type: 'operator', value: '.' });
-            }
-          });
-          return pfNodes;
-        }
+      {
+        // This node is an iteration list. Unroll.
+        const expressionItems = node.value[0].value;
+        const pfNodes: PostfixNode[] = [];
+        each(expressionItems, (expressionItem, idx) => {
+          hasEndMatcher = getValue(expressionItem) === '$';
+          if (hasEndMatcher) {
+            return false;
+          }
+          pfNodes.push(..._createPostfix(expressionItem, notEqual));
+          if (idx > 0 && idx < expressionItems.length) {
+            pfNodes.push({ from: node.type, type: 'operator', value: '.' });
+          }
+        });
+        return pfNodes;
+      }
       case 'characterGroupInner':
-        {
-          // This node is an iteration list. Unroll.
-          const expressionItems = node.value[0].value;
-          const pfNodes: PostfixNode[] = [];
-          each(expressionItems, (expressionItem, idx) => {
-            // Character groups with the '^' exclusion character need to have have all characters in a single node.
-            if (!notEqual) {
-              pfNodes.push(..._createPostfix(expressionItem, notEqual));
+      {
+        // This node is an iteration list. Unroll.
+        const expressionItems = node.value[0].value;
+        const pfNodes: PostfixNode[] = [];
+        each(expressionItems, (expressionItem, idx) => {
+          // Character groups with the '^' exclusion character need to have have all characters in a single node.
+          if (!notEqual) {
+            pfNodes.push(..._createPostfix(expressionItem, notEqual));
+          } else {
+            const pfNode: PostfixNode = reduce(_createPostfix(expressionItem, notEqual), (memo, n) => ({
+              ...memo,
+              value: [...memo.value, ...n.value],
+            }), {
+              from: node.type,
+              type: 'operand',
+              value: [] as string[],
+              notEqual,
+            });
+            if (idx === 0) {
+              pfNodes.push(pfNode);
             } else {
-              const pfNode: PostfixNode = reduce(_createPostfix(expressionItem, notEqual), (memo, n) => ({
-                ...memo,
-                value: [...memo.value, ...n.value],
-              }), {
-                from: node.type,
-                type: 'operand',
-                value: [] as string[],
-                notEqual,
-              });
-              if (idx === 0) {
-                pfNodes.push(pfNode);
-              } else {
-                pfNodes[0].value = [...pfNodes[0].value, ...pfNode.value];
-              }
+              pfNodes[0].value = [...pfNodes[0].value, ...pfNode.value];
             }
+          }
 
-            // Character groups without the '^' exclusion character need to have an OR operator between each character.
-            if (!notEqual && idx > 0 && idx < expressionItems.length) {
-              pfNodes.push({ from: node.type, type: 'operator', value: '|' });
-            }
-          });
-          return pfNodes;
-        }
+          // Character groups without the '^' exclusion character need to have an OR operator between each character.
+          if (!notEqual && idx > 0 && idx < expressionItems.length) {
+            pfNodes.push({ from: node.type, type: 'operator', value: '|' });
+          }
+        });
+        return pfNodes;
+      }
       case 'expressionItem':
       case 'matchCharacterClass':
       case 'characterGroupItem':
       case 'characterRange':
       case 'matchItem':
       case 'group':
-        {
-          // Should have only one child.
-          return _createPostfix(node.value[0], notEqual);
-        }
+      {
+        // Should have only one child.
+        return _createPostfix(node.value[0], notEqual);
+      }
       case 'groupExpression':
-        {
-          const quantifier = node.value[4].value.length ? _createPostfix(node.value[4].value[0], notEqual) : [];
-          const operands = _createPostfix(node.value[2], notEqual);
-          return createPostfixNodesWithQuantifier(operands, quantifier);
-          // return [
-          //   ..._createPostfix(node.value[2], notEqual),
-          //   ...(quantifier ? [{ from: node.type, type: 'operator', value: quantifier }] : []),
-          // ];
-        }
+      {
+        const quantifier = node.value[4].value.length ? _createPostfix(node.value[4].value[0], notEqual) : [];
+        const operands = _createPostfix(node.value[2], notEqual);
+        return createPostfixNodesWithQuantifier(operands, quantifier);
+        // return [
+        //   ..._createPostfix(node.value[2], notEqual),
+        //   ...(quantifier ? [{ from: node.type, type: 'operator', value: quantifier }] : []),
+        // ];
+      }
       case 'match':
-        {
-          const quantifier = node.value[1].value.length ? _createPostfix(node.value[1].value[0], notEqual) : [];
-          const operands = _createPostfix(node.value[0], notEqual);
-          return createPostfixNodesWithQuantifier(operands, quantifier);
-          // return [
-          //   ..._createPostfix(node.value[0], notEqual),
-          //   ...(quantifier ? [{ from: node.type, type: 'operator', value: quantifier }] : []),
-          // ];
-        }
+      {
+        const quantifier = node.value[1].value.length ? _createPostfix(node.value[1].value[0], notEqual) : [];
+        const operands = _createPostfix(node.value[0], notEqual);
+        return createPostfixNodesWithQuantifier(operands, quantifier);
+        // return [
+        //   ..._createPostfix(node.value[0], notEqual),
+        //   ...(quantifier ? [{ from: node.type, type: 'operator', value: quantifier }] : []),
+        // ];
+      }
       case 'quantifier':
         return _createPostfix(node.value[0], notEqual);
       case 'quantifierType':
@@ -219,96 +219,96 @@ export const createPostfix = (regex: RegExp) => {
         }
         return _createPostfix(node.value[0], notEqual);
       case 'matchCount1':
-        {
-          const count = getValue(node.value[1]);
-          return [{ from: node.type, type: 'operator', value: count }, { from: node.type, type: 'operator', value: count }];
-        }
+      {
+        const count = getValue(node.value[1]);
+        return [{ from: node.type, type: 'operator', value: count }, { from: node.type, type: 'operator', value: count }];
+      }
       case 'matchCount2':
         return [{ from: node.type, type: 'operator', value: getValue(node.value[1]) }, { from: node.type, type: 'operator', value: getValue(node.value[3]) }];
       case 'character':
       case 'characterClass':
-        {
-          let val = getValue(node);
-          if (node.type !== 'characterClass') {
-            val = val.replace(/^\\/, '');
-            return [{ from: node.type, type: 'operand', value: val, notEqual }];
-          }
-          switch (val) {
-           case '\\w':
-            {
-              let pfNodes: PostfixNode[] = [];
-              pfNodes = createRangePostfixNodes(node, 'a', 'z', pfNodes, notEqual);
-              pfNodes = createRangePostfixNodes(node, 'A', 'Z', pfNodes, notEqual);
-              pfNodes = createRangePostfixNodes(node, '0', '9', pfNodes, notEqual);
-              pfNodes.push({ from: node.type, type: 'operand', value: '_', notEqual: notEqual });
-              pfNodes.push({ from: node.type, type: 'operator', value: '|' });
-              return pfNodes;
-            }
-            case '\\W':
-              return [{
-                from: node.type,
-                type: 'operand',
-                value: map([
-                  ...range('a'.charCodeAt(0), 'z'.charCodeAt(0) + 1),
-                  ...range('A'.charCodeAt(0), 'Z'.charCodeAt(0) + 1),
-                  ...range('0'.charCodeAt(0), '9'.charCodeAt(0) + 1),
-                  '_'.charCodeAt(0),
-                ], (charCode) => String.fromCharCode(charCode)),
-                notEqual: true,
-              }];
-            case '\\d':
-              return createRangePostfixNodes(node, '0', '9', [], notEqual);
-            case '\\D':
-              return [{
-                from: node.type,
-                type: 'operand',
-                value: map(range('0'.charCodeAt(0), '9'.charCodeAt(0) + 1), (charCode) => String.fromCharCode(charCode)),
-                notEqual: true,
-              }];
-            case '\\s':
-              {
-                const pfNodes: PostfixNode[] = [];
-                pfNodes.push({ from: node.type, type: 'operand', value: ' ', notEqual: notEqual });
-                pfNodes.push({ from: node.type, type: 'operand', value: '\t', notEqual: notEqual });
-                pfNodes.push({ from: node.type, type: 'operator', value: '|' });
-                pfNodes.push({ from: node.type, type: 'operand', value: '\n', notEqual: notEqual });
-                pfNodes.push({ from: node.type, type: 'operator', value: '|' });
-                pfNodes.push({ from: node.type, type: 'operand', value: '\r', notEqual: notEqual });
-                pfNodes.push({ from: node.type, type: 'operator', value: '|' });
-                pfNodes.push({ from: node.type, type: 'operand', value: '\f', notEqual: notEqual });
-                pfNodes.push({ from: node.type, type: 'operator', value: '|' });
-                pfNodes.push({ from: node.type, type: 'operand', value: '\v', notEqual: notEqual });
-                pfNodes.push({ from: node.type, type: 'operator', value: '|' });
-                return pfNodes;
-              }
-            case '\\S':
-              return [{
-                from: node.type,
-                type: 'operand',
-                value: [' ', '\t', '\n', '\r', '\f', '\v'],
-                notEqual: true,
-              }];
-            default:
-              throw new Error(`Do not know how to handle: "${val}"`);
-          }
+      {
+        let val = getValue(node);
+        if (node.type !== 'characterClass') {
+          val = val.replace(/^\\/, '');
+          return [{ from: node.type, type: 'operand', value: val, notEqual }];
         }
+        switch (val) {
+          case '\\w':
+          {
+            let pfNodes: PostfixNode[] = [];
+            pfNodes = createRangePostfixNodes(node, 'a', 'z', pfNodes, notEqual);
+            pfNodes = createRangePostfixNodes(node, 'A', 'Z', pfNodes, notEqual);
+            pfNodes = createRangePostfixNodes(node, '0', '9', pfNodes, notEqual);
+            pfNodes.push({ from: node.type, type: 'operand', value: '_', notEqual: notEqual });
+            pfNodes.push({ from: node.type, type: 'operator', value: '|' });
+            return pfNodes;
+          }
+          case '\\W':
+            return [{
+              from: node.type,
+              type: 'operand',
+              value: map([
+                ...range('a'.charCodeAt(0), 'z'.charCodeAt(0) + 1),
+                ...range('A'.charCodeAt(0), 'Z'.charCodeAt(0) + 1),
+                ...range('0'.charCodeAt(0), '9'.charCodeAt(0) + 1),
+                '_'.charCodeAt(0),
+              ], (charCode) => String.fromCharCode(charCode)),
+              notEqual: true,
+            }];
+          case '\\d':
+            return createRangePostfixNodes(node, '0', '9', [], notEqual);
+          case '\\D':
+            return [{
+              from: node.type,
+              type: 'operand',
+              value: map(range('0'.charCodeAt(0), '9'.charCodeAt(0) + 1), (charCode) => String.fromCharCode(charCode)),
+              notEqual: true,
+            }];
+          case '\\s':
+          {
+            const pfNodes: PostfixNode[] = [];
+            pfNodes.push({ from: node.type, type: 'operand', value: ' ', notEqual: notEqual });
+            pfNodes.push({ from: node.type, type: 'operand', value: '\t', notEqual: notEqual });
+            pfNodes.push({ from: node.type, type: 'operator', value: '|' });
+            pfNodes.push({ from: node.type, type: 'operand', value: '\n', notEqual: notEqual });
+            pfNodes.push({ from: node.type, type: 'operator', value: '|' });
+            pfNodes.push({ from: node.type, type: 'operand', value: '\r', notEqual: notEqual });
+            pfNodes.push({ from: node.type, type: 'operator', value: '|' });
+            pfNodes.push({ from: node.type, type: 'operand', value: '\f', notEqual: notEqual });
+            pfNodes.push({ from: node.type, type: 'operator', value: '|' });
+            pfNodes.push({ from: node.type, type: 'operand', value: '\v', notEqual: notEqual });
+            pfNodes.push({ from: node.type, type: 'operator', value: '|' });
+            return pfNodes;
+          }
+          case '\\S':
+            return [{
+              from: node.type,
+              type: 'operand',
+              value: [' ', '\t', '\n', '\r', '\f', '\v'],
+              notEqual: true,
+            }];
+          default:
+            throw new Error(`Do not know how to handle: "${val}"`);
+        }
+      }
       case 'anyChar':
-        {
-          return [{ from: node.type, type: 'operand', value: '', notEqual: isNil(notEqual) ? true : !notEqual}];
-        }
+      {
+        return [{ from: node.type, type: 'operand', value: '', notEqual: isNil(notEqual) ? true : !notEqual}];
+      }
       case 'characterGroup':
-        {
-          // Check if the '^' slot is not empty. This means that the group is an exclusion group.
-          const exclusionGroup = node.value[1].value[0];
-          return _createPostfix(node.value[2], exclusionGroup ? true : undefined);
-        }
+      {
+        // Check if the '^' slot is not empty. This means that the group is an exclusion group.
+        const exclusionGroup = node.value[1].value[0];
+        return _createPostfix(node.value[2], exclusionGroup ? true : undefined);
+      }
       case 'characterRangeItem':
-        {
-          const start = getValue(node.value[0]);
-          const end = getValue(node.value[2]);
-          const pfNodes: PostfixNode[] = [];
-          return createRangePostfixNodes(node, start, end, pfNodes, notEqual);
-        }
+      {
+        const start = getValue(node.value[0]);
+        const end = getValue(node.value[2]);
+        const pfNodes: PostfixNode[] = [];
+        return createRangePostfixNodes(node, start, end, pfNodes, notEqual);
+      }
       default:
         throw new Error(`Do not know how to handle: "${node.type}"`);
     }
@@ -372,62 +372,62 @@ export const postfixToNFA = (postfix: PostfixNode[]): State | undefined => {
       switch (p.value) {
         // Concatenation
         case '.':
-          {
-            const e2 = stack.pop();
-            const e1 = stack.pop();
-            if (!e1 || !e2) {
-              throw new Error('Invalid postfix expression');
-            }
-            patch(e1.out, e2.start);
-            stack.push({ start: e1.start, out: e2.out });
+        {
+          const e2 = stack.pop();
+          const e1 = stack.pop();
+          if (!e1 || !e2) {
+            throw new Error('Invalid postfix expression');
           }
+          patch(e1.out, e2.start);
+          stack.push({ start: e1.start, out: e2.out });
+        }
           break;
         // Alternation
         case '|':
-          {
-            const e2 = stack.pop();
-            const e1 = stack.pop();
-            if (!e1 || !e2) {
-              throw new Error('Invalid postfix expression');
-            }
-            const s: State = { type: 'Split', out: e1.start, out1: e2.start };
-            stack.push({ start: s, out: [...e1.out, ...e2.out] });
+        {
+          const e2 = stack.pop();
+          const e1 = stack.pop();
+          if (!e1 || !e2) {
+            throw new Error('Invalid postfix expression');
           }
+          const s: State = { type: 'Split', out: e1.start, out1: e2.start };
+          stack.push({ start: s, out: [...e1.out, ...e2.out] });
+        }
           break;
         // Zero or one
         case '?':
-          {
-            const e = stack.pop();
-            if (!e) {
-              throw new Error('Invalid postfix expression');
-            }
-            const s: State = { type: 'Split', out: e.start, out1: null };
-            stack.push({ start: s, out: [{ state: s, outAttr: 'out1' }, ...e.out] });
+        {
+          const e = stack.pop();
+          if (!e) {
+            throw new Error('Invalid postfix expression');
           }
+          const s: State = { type: 'Split', out: e.start, out1: null };
+          stack.push({ start: s, out: [{ state: s, outAttr: 'out1' }, ...e.out] });
+        }
           break;
         // Zero or more
         case '*':
-          {
-            const e = stack.pop();
-            if (!e) {
-              throw new Error('Invalid postfix expression');
-            }
-            const s: State = { type: 'Split', out: e.start, out1: null };
-            patch(e.out, s);
-            stack.push({ start: s, out: [{ state: s, outAttr: 'out1' }] });
+        {
+          const e = stack.pop();
+          if (!e) {
+            throw new Error('Invalid postfix expression');
           }
+          const s: State = { type: 'Split', out: e.start, out1: null };
+          patch(e.out, s);
+          stack.push({ start: s, out: [{ state: s, outAttr: 'out1' }] });
+        }
           break;
         // One or more
         case '+':
-          {
-            const e = stack.pop();
-            if (!e) {
-              throw new Error('Invalid postfix expression');
-            }
-            const s: State = { type: 'Split', out: e.start, out1: null };
-            patch(e.out, s);
-            stack.push({ start: e.start, out: [{ state: s, outAttr: 'out1' }] });
+        {
+          const e = stack.pop();
+          if (!e) {
+            throw new Error('Invalid postfix expression');
           }
+          const s: State = { type: 'Split', out: e.start, out1: null };
+          patch(e.out, s);
+          stack.push({ start: e.start, out: [{ state: s, outAttr: 'out1' }] });
+        }
           break;
         default:
           throw new Error(`Unknown operator: ${p.value}`);
@@ -565,6 +565,7 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
 
     let strBuffer = '';
     let lastMatch: string | undefined = undefined;
+    let lastMatchEnd = 0;
     const splitter = new Graphemer();
 
     const matchStream = new PassThrough({ readableObjectMode: true, writableHighWaterMark: highWaterMark });
@@ -586,12 +587,15 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
         if (some(list, (state) => state.type === 'Match')) {
           debugLogger('[_doMatchStream] Has match');
           lastMatch = strBuffer;
+          lastMatchEnd = strBuffer.length;
 
           if (!greedy) {
             matchStream.push({ matchedValue: lastMatch, srcValue: strBuffer });
             strBuffer = '';
             list = [];
             lastMatch = undefined;
+            lastMatchEnd = 0;
+            addState(list, start);
           }
         }
 
@@ -615,7 +619,13 @@ export const match = (start: State, input: Readable, options?: MatchOptions) => 
 
     // Flush any pending match.
     matchStream._final = (callback) => {
-      matchStream.push({ matchedValue: lastMatch, srcValue: strBuffer });
+      if (lastMatch) {
+        matchStream.push({ matchedValue: lastMatch, srcValue: strBuffer.substring(0, lastMatchEnd) });
+        strBuffer = strBuffer.substring(lastMatchEnd);
+      }
+      if (strBuffer.length > 0) {
+        matchStream.push({ matchedValue: undefined, srcValue: strBuffer });
+      }
       callback();
     }
 
