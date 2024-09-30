@@ -194,4 +194,64 @@ describe('StreamRegex', () => {
     const streamRegex = new StreamRegex(regex);
     return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`), 'replace')).resolves.toBe('😄_👍_');
   });
+  it('support handle emoji replace with remaining text in the end', async () => {
+    const regex = /👍/g;
+    const input = stringToStream('😄👍hey~you~', 1);
+    const streamRegex = new StreamRegex(regex);
+    return expect(streamToPromise(streamRegex.replace(input, (match) => `_${match}_`), 'replace')).resolves.toBe('😄_👍_hey~you~');
+  });
+
+  it('should handle incomplete keyword at the end of the stream', async () => {
+    const regex = /<Action:\s*([a-zA-Z0-9\-._\s]+)\s*>/gi;
+    const input = new Readable({
+      read() {
+        this.push('This is a complete');
+        this.push(' <Action:FullAction> and an incomplete');
+        this.push('text');
+        this.push(null);
+      }
+    });
+
+    const streamRegex = new StreamRegex(regex);
+    const result = streamRegex.replace(input, () => {
+      return '';
+    });
+
+    const output = await streamToPromise(result, 'replace');
+    expect(output).toBe('This is a complete  and an incompletetext');
+  });
+
+  it('should extract keywords correctly', async () => {
+    const regex = /<Action:\s*([a-zA-Z0-9\-._\s]+)\s*>/gi;
+    const input = stringToStream('This is a complete <Action:FullAction> and an incomplete', 1);
+
+    const streamRegex = new StreamRegex(regex);
+    const extractedKeywords:string[] = [];
+    const result = streamRegex.replace(input, (match, action) => {
+      extractedKeywords.push(action.trim());
+      return '';
+    });
+
+    await streamToPromise(result, 'replace');
+    expect(extractedKeywords).toEqual(['FullAction']);
+  });
+
+  it('should handle incomplete keyword at the end of the stream2', async () => {
+    const regex = /<Action:\s*([a-zA-Z0-9\-._\s]+)\s*>/gi;
+    const input = new Readable({
+      read() {
+        this.push('This is a complete <Action:');
+        this.push('FullAction> and an incomplete <Acti');
+        this.push(null);
+      }
+    });
+
+    const streamRegex = new StreamRegex(regex);
+    const result = streamRegex.replace(input, () => {
+      return '';
+    });
+
+    const output = await streamToPromise(result, 'replace');
+    expect(output).toBe('This is a complete  and an incomplete <Acti');
+  });
 });
