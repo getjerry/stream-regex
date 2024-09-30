@@ -680,6 +680,7 @@ const match = (start, input, options) => {
     let list = [];
     let strBuffer = '';
     let lastMatch = undefined;
+    let lastMatchEnd = 0;
     const splitter = new _graphemer.default();
     const matchStream = new _stream.PassThrough({
       readableObjectMode: true,
@@ -700,6 +701,7 @@ const match = (start, input, options) => {
         if ((0, _some.default)(list, state => state.type === 'Match')) {
           debugLogger('[_doMatchStream] Has match');
           lastMatch = strBuffer;
+          lastMatchEnd = strBuffer.length;
           if (!greedy) {
             matchStream.push({
               matchedValue: lastMatch,
@@ -708,6 +710,8 @@ const match = (start, input, options) => {
             strBuffer = '';
             list = [];
             lastMatch = undefined;
+            lastMatchEnd = 0;
+            addState(list, start);
           }
         }
 
@@ -733,10 +737,19 @@ const match = (start, input, options) => {
 
     // Flush any pending match.
     matchStream._final = callback => {
-      matchStream.push({
-        matchedValue: lastMatch,
-        srcValue: strBuffer
-      });
+      if (lastMatch) {
+        matchStream.push({
+          matchedValue: lastMatch,
+          srcValue: strBuffer.substring(0, lastMatchEnd)
+        });
+        strBuffer = strBuffer.substring(lastMatchEnd);
+      }
+      if (strBuffer.length > 0) {
+        matchStream.push({
+          matchedValue: undefined,
+          srcValue: strBuffer
+        });
+      }
       callback();
     };
     return matchStream;
